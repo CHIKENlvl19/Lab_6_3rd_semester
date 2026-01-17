@@ -5,42 +5,39 @@
 
 using namespace std;
 
+const char* DB_HOST = "localhost";
+const char* DB_PORT = "5432";
+const char* DB_NAME = "vulnerabilities_2025";
+const char* DB_USER = "soc_operator";
+const char* DB_PASS = "sociscool";
+
 void printResult(PGresult* res) {
     int rows = PQntuples(res);
     int cols = PQnfields(res);
+    const int WIDTH = 30;
 
-    const int WIDTH = 30; // ширина столбца
-
-    // заголовки
-    for (int i = 0; i < cols; i++) {
+    for (int i = 0; i < cols; i++)
         cout << left << setw(WIDTH) << PQfname(res, i);
-    }
     cout << endl;
 
-    // разделитель
-    for (int i = 0; i < cols; i++) {
+    for (int i = 0; i < cols; i++)
         cout << string(WIDTH, '-');
-    }
     cout << endl;
 
-    // данные
     for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
+        for (int j = 0; j < cols; j++)
             cout << left << setw(WIDTH) << PQgetvalue(res, i, j);
-        }
         cout << endl;
     }
 }
 
 void executeQuery(PGconn* conn, const string& query) {
     PGresult* res = PQexec(conn, query.c_str());
-
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        cerr << "Ошибка запроса:\n" << PQerrorMessage(conn) << endl;
+        cerr << "Ошибка запроса:\n" << PQerrorMessage(conn);
         PQclear(res);
         return;
     }
-
     printResult(res);
     PQclear(res);
 }
@@ -48,40 +45,34 @@ void executeQuery(PGconn* conn, const string& query) {
 void executeCommand(PGconn* conn, const string& query,
                     int nParams = 0,
                     const char* const* paramValues = nullptr) {
+
     PGresult* res = PQexecParams(
-        conn,
-        query.c_str(),
-        nParams,
-        nullptr,
-        paramValues,
-        nullptr,
-        nullptr,
-        0
+        conn, query.c_str(),
+        nParams, nullptr,
+        paramValues, nullptr, nullptr, 0
     );
 
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        cerr << "Ошибка выполнения команды:\n"
-             << PQerrorMessage(conn) << endl;
-    } else {
+    if (PQresultStatus(res) != PGRES_COMMAND_OK)
+        cerr << "Ошибка выполнения:\n" << PQerrorMessage(conn);
+    else
         cout << "Операция выполнена успешно.\n";
-    }
 
     PQclear(res);
 }
 
-
 int main() {
-    const char* conninfo =
-        "host=localhost "
-        "port=5432 "
-        "dbname=vulnerabilities_2025 "
-        "user=soc_operator "
-        "password=sociscool";
 
-    PGconn* conn = PQconnectdb(conninfo);
+    string conninfo =
+        string("host=") + DB_HOST +
+        " port=" + DB_PORT +
+        " dbname=" + DB_NAME +
+        " user=" + DB_USER +
+        " password=" + DB_PASS;
+
+    PGconn* conn = PQconnectdb(conninfo.c_str());
 
     if (PQstatus(conn) != CONNECTION_OK) {
-        cerr << "Ошибка подключения:\n" << PQerrorMessage(conn) << endl;
+        cerr << "Ошибка подключения:\n" << PQerrorMessage(conn);
         PQfinish(conn);
         return 1;
     }
@@ -90,32 +81,36 @@ int main() {
 
     int choice;
     do {
-        cout << "\n===== МЕНЮ =====\n";
-        cout << "1. Все уязвимости\n";
-        cout << "2. Critical-уязвимости 2025 года\n";
-        cout << "3. Количество уязвимостей по типам\n";
-        cout << "4. Вендоры и число уязвимостей\n";
-        cout << "5. Уязвимости и меры устранения\n";
-        cout << "6. Продукты с SQL-инъекциями\n";
-        cout << "7. Средний CVSS по уровням критичности\n";
-        cout << "8. Уязвимости без мер устранения\n";
-        cout << "9. Количество уязвимостей по годам\n";
+        cout << "\n           МЕНЮ           \n";
+
+        cout << "\nАНАЛИТИЧЕСКИЕ ЗАПРОСЫ\n";
+        cout << " 1. Все уязвимости\n";
+        cout << " 2. Critical-уязвимости 2025 года\n";
+        cout << " 3. Количество уязвимостей по типам\n";
+        cout << " 4. Вендоры и число уязвимостей\n";
+        cout << " 5. Уязвимости и меры устранения\n";
+        cout << " 6. Продукты с SQL-инъекциями\n";
+        cout << " 7. Средний CVSS по уровням критичности\n";
+        cout << " 8. Уязвимости без мер устранения\n";
+        cout << " 9. Количество уязвимостей по годам\n";
         cout << "10. High и Critical уязвимости\n";
+
+        cout << "\nУПРАВЛЕНИЕ ДАННЫМИ\n";
         cout << "11. Добавить уязвимость\n";
         cout << "12. Удалить уязвимость по CVE\n";
         cout << "13. Добавить меру устранения\n";
         cout << "14. Показать все меры устранения\n";
         cout << "15. Добавить продукт\n";
-        cout << "0. Выход\n";
-        cout << "Выбор: ";
 
+        cout << "\n0. Выход\n";
+        cout << "Выбор: ";
         cin >> choice;
 
         switch (choice) {
 
         case 1:
             executeQuery(conn,
-                "SELECT v.cve_id, p.name AS product, s.name AS severity, v.publish_date "
+                "SELECT v.cve_id, p.name, s.name, v.publish_date "
                 "FROM vulnerabilities v "
                 "JOIN products p ON v.product_id = p.product_id "
                 "JOIN severity_levels s ON v.severity_id = s.severity_id "
@@ -134,35 +129,31 @@ int main() {
 
         case 3:
             executeQuery(conn,
-                "SELECT vt.name, COUNT(v.vulnerability_id) AS total "
+                "SELECT vt.name, COUNT(*) "
                 "FROM vulnerability_types vt "
                 "LEFT JOIN vulnerabilities v ON vt.type_id = v.type_id "
-                "GROUP BY vt.name "
-                "ORDER BY total DESC;");
+                "GROUP BY vt.name;");
             break;
 
         case 4:
             executeQuery(conn,
-                "SELECT ven.name, COUNT(v.vulnerability_id) AS total "
+                "SELECT ven.name, COUNT(*) "
                 "FROM vendors ven "
                 "JOIN products p ON ven.vendor_id = p.vendor_id "
                 "JOIN vulnerabilities v ON p.product_id = v.product_id "
-                "GROUP BY ven.name "
-                "HAVING COUNT(v.vulnerability_id) > 0 "
-                "ORDER BY total DESC;");
+                "GROUP BY ven.name;");
             break;
 
         case 5:
             executeQuery(conn,
                 "SELECT v.cve_id, m.description, m.release_date "
                 "FROM vulnerabilities v "
-                "JOIN mitigations m ON v.vulnerability_id = m.vulnerability_id "
-                "ORDER BY m.release_date;");
+                "JOIN mitigations m ON v.vulnerability_id = m.vulnerability_id;");
             break;
 
         case 6:
             executeQuery(conn,
-                "SELECT DISTINCT p.name AS product, ven.name AS vendor "
+                "SELECT DISTINCT p.name, ven.name "
                 "FROM vulnerabilities v "
                 "JOIN products p ON v.product_id = p.product_id "
                 "JOIN vendors ven ON p.vendor_id = ven.vendor_id "
@@ -172,7 +163,7 @@ int main() {
 
         case 7:
             executeQuery(conn,
-                "SELECT name, (cvss_score_min + cvss_score_max) / 2 AS avg_cvss "
+                "SELECT name, (cvss_score_min + cvss_score_max)/2 AS avg_cvss "
                 "FROM severity_levels;");
             break;
 
@@ -186,55 +177,35 @@ int main() {
 
         case 9:
             executeQuery(conn,
-                "SELECT EXTRACT(YEAR FROM publish_date) AS year, COUNT(*) AS total "
-                "FROM vulnerabilities "
-                "GROUP BY year "
-                "ORDER BY year;");
+                "SELECT EXTRACT(YEAR FROM publish_date), COUNT(*) "
+                "FROM vulnerabilities GROUP BY 1 ORDER BY 1;");
             break;
 
         case 10:
             executeQuery(conn,
-                "SELECT v.cve_id, p.name AS product, ven.name AS vendor, s.name AS severity "
+                "SELECT v.cve_id, p.name, s.name "
                 "FROM vulnerabilities v "
                 "JOIN products p ON v.product_id = p.product_id "
-                "JOIN vendors ven ON p.vendor_id = ven.vendor_id "
                 "JOIN severity_levels s ON v.severity_id = s.severity_id "
-                "WHERE s.name IN ('High', 'Critical') "
-                "ORDER BY s.name DESC;");
+                "WHERE s.name IN ('High','Critical');");
             break;
 
         case 11: {
             string cve, desc, date;
-            int product_id, type_id, severity_id;
-
-            cout << "CVE ID: ";
-            cin >> cve;
+            int product, type, severity;
             cin.ignore();
+            cout << "CVE: "; getline(cin, cve);
+            cout << "Описание: "; getline(cin, desc);
+            cout << "ID продукта: "; cin >> product;
+            cout << "ID типа: "; cin >> type;
+            cout << "ID критичности: "; cin >> severity;
+            cout << "Дата (YYYY-MM-DD): "; cin >> date;
 
-            cout << "Описание: ";
-            getline(cin, desc);
-
-            cout << "ID продукта: ";
-            cin >> product_id;
-
-            cout << "ID типа уязвимости: ";
-            cin >> type_id;
-
-            cout << "ID критичности: ";
-            cin >> severity_id;
-
-            cout << "Дата публикации (YYYY-MM-DD): ";
-            cin >> date;
-
-            string product_id_str = to_string(product_id);
-            string type_id_str = to_string(type_id);
-            string severity_id_str = to_string(severity_id);
-
-            const char* params[6] = {
+            const char* params[] = {
                 cve.c_str(),
-                product_id_str.c_str(),
-                type_id_str.c_str(),
-                severity_id_str.c_str(),
+                to_string(product).c_str(),
+                to_string(type).c_str(),
+                to_string(severity).c_str(),
                 desc.c_str(),
                 date.c_str()
             };
@@ -242,43 +213,32 @@ int main() {
             executeCommand(conn,
                 "INSERT INTO vulnerabilities "
                 "(cve_id, product_id, type_id, severity_id, description, publish_date) "
-                "VALUES ($1, $2, $3, $4, $5, $6);",
-                6, params
-            );
+                "VALUES ($1,$2,$3,$4,$5,$6);",
+                6, params);
             break;
         }
 
-
         case 12: {
             string cve;
-            cout << "Введите CVE ID для удаления: ";
+            cout << "CVE для удаления: ";
             cin >> cve;
-
-            const char* params[1] = { cve.c_str() };
-
+            const char* p[] = { cve.c_str() };
             executeCommand(conn,
                 "DELETE FROM vulnerabilities WHERE cve_id = $1;",
-                1, params
-            );
+                1, p);
             break;
         }
 
         case 13: {
-            int vuln_id;
+            int id;
             string desc, date;
-
-            cout << "ID уязвимости: ";
-            cin >> vuln_id;
+            cout << "ID уязвимости: "; cin >> id;
             cin.ignore();
+            cout << "Описание меры: "; getline(cin, desc);
+            cout << "Дата: "; cin >> date;
 
-            cout << "Описание меры: ";
-            getline(cin, desc);
-
-            cout << "Дата выпуска (YYYY-MM-DD): ";
-            cin >> date;
-
-            const char* params[3] = {
-                to_string(vuln_id).c_str(),
+            const char* p[] = {
+                to_string(id).c_str(),
                 desc.c_str(),
                 date.c_str()
             };
@@ -286,49 +246,35 @@ int main() {
             executeCommand(conn,
                 "INSERT INTO mitigations "
                 "(vulnerability_id, description, release_date) "
-                "VALUES ($1, $2, $3);",
-                3, params
-            );
+                "VALUES ($1,$2,$3);",
+                3, p);
             break;
         }
 
         case 14:
             executeQuery(conn,
-                "SELECT m.mitigation_id, v.cve_id, m.description, m.release_date "
-                "FROM mitigations m "
-                "JOIN vulnerabilities v ON m.vulnerability_id = v.vulnerability_id "
-                "ORDER BY m.release_date DESC;");
+                "SELECT * FROM mitigations ORDER BY release_date DESC;");
             break;
 
         case 15: {
-            string name, version, vendor_name;
-
+            string name, version, vendor;
             cin.ignore();
+            cout << "Название продукта: "; getline(cin, name);
+            cout << "Версия: "; getline(cin, version);
+            cout << "Вендор: "; getline(cin, vendor);
 
-            cout << "Название продукта: ";
-            getline(cin, name);
-
-            cout << "Версия продукта: ";
-            getline(cin, version);
-
-            cout << "Название вендора: ";
-            getline(cin, vendor_name);
-
-            const char* params[3] = {
+            const char* p[] = {
                 name.c_str(),
                 version.c_str(),
-                vendor_name.c_str()
+                vendor.c_str()
             };
 
             executeCommand(conn,
                 "INSERT INTO products (vendor_id, name, version) "
-                "SELECT vendor_id, $1, $2 "
-                "FROM vendors WHERE name = $3;",
-                3, params
-            );
+                "SELECT vendor_id, $1, $2 FROM vendors WHERE name = $3;",
+                3, p);
             break;
         }
-
 
         case 0:
             cout << "Выход...\n";
@@ -337,6 +283,7 @@ int main() {
         default:
             cout << "Неверный выбор!\n";
         }
+
     } while (choice != 0);
 
     PQfinish(conn);
